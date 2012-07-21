@@ -16,19 +16,16 @@
 
 Triangulate::Triangulate()
 {
-    std::cout << "ImageProcessing..." << std::endl;
     
-    Mat M(2,2, CV_8UC3, Scalar(0,0,255));
-    image = &M;
 }
 
 
 void Triangulate::performDelaunay(int x, int y, int w, int h, const vector<point_2d_t> &points, vector<triangle_t> *triangles)
 {
-    cout << "performDelaunay" << endl;
+    //cout << "performDelaunay" << endl;
     triangles->clear();
     
-    Rect rect(0,0,w,h);
+    Rect rect(x,y,w,h);
     Subdiv2D subdiv(rect);
     
     for( int i = 0; i < points.size(); i++ )

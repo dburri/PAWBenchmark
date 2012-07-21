@@ -22,8 +22,6 @@
 
 - (void)setImage:(UIImage*)img
 {
-    NSLog(@"Set new image");
-    
     CGSize viewSize = self.frame.size;
     
     sx = viewSize.width/img.size.width;
@@ -65,7 +63,6 @@
         
         if(triangles)
         {
-            NSLog(@"Draw triangles...");
             CGContextSetLineWidth(context, 3.0f);
             CGContextSetStrokeColorWithColor(context, [UIColor blueColor].CGColor);
             CGContextSetFillColorWithColor(context, [UIColor blueColor].CGColor);
@@ -93,7 +90,6 @@
         {
             CGPoint p = CGPointMake(shape.shape[i].pos[0]*sx, shape.shape[i].pos[1]*sy);
             CGContextFillEllipseInRect(context, CGRectMake(p.x-5, p.y-5, 10, 10));
-            NSLog(@"[%f, %f]", p.x, self.frame.size.height-p.y);
         }
         
 

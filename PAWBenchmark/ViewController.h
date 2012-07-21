@@ -8,6 +8,17 @@
 
 #import <UIKit/UIKit.h>
 
-@interface ViewController : UIViewController
+@interface ViewController : UIViewController 
+{
+    IBOutlet UIImageView *imgView1;
+    IBOutlet UIImageView *imgView2;
+}
+
+@property IBOutlet UIImageView *imgView1;
+@property IBOutlet UIImageView *imgView2;
+
+
+- (UIImage*)createDummyImage:(CGSize)size;
+- (void)testTriangulation;
 
 @end

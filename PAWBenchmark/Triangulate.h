@@ -16,7 +16,7 @@ using namespace std;
 
 typedef struct {
     float pos[2];
-} point_t;
+} point_2d_t;
 
 typedef struct {
     unsigned int ind[3];
@@ -29,7 +29,7 @@ class Triangulate
 public:
     Triangulate();
     
-    void performDelaunay(int w, int h, const point_t *points, int num_points, triangle_t *triangles, int *num_triangles);
+    void performDelaunay(int x, int y, int w, int h, const vector<point_2d_t> &points, vector<triangle_t> *triangles);
     
 private:
     cv::Mat *image;

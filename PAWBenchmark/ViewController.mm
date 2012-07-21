@@ -7,6 +7,8 @@
 //
 
 #import "ViewController.h"
+#import "PiecewiseAffineWarp.h"
+#import "PiecewiseAffineWarpCPU.h"
 #include "Triangulate.h"
 
 #define ARC4RANDOM_MAX      0x100000000
@@ -27,11 +29,32 @@ Triangulate *delaunay;
 	// Do any additional setup after loading the view, typically from a nib.
     delaunay = new Triangulate;
     
-    UIImage *img = [self createDummyImage:CGSizeMake(32, 32)];
-    imgView1.image = img;
+    CGSize imgSize = CGSizeMake(320, 240);
     
-    [self testTriangulation];
+    PiecewiseAffineWarp *PAW = [[PiecewiseAffineWarp alloc] init];
+    PiecewiseAffineWarpCPU *PAWCPU = [[PiecewiseAffineWarpCPU alloc] init];
     
+    UIImage *img1 = [self createDummyImage:imgSize];
+    PDMShape *shape1 = [self createDummyShape:10 :imgSize];
+    PDMShape *shape2 = [shape1 getCopy];
+    NSArray *tri = [self triangulateShape:shape1];
+    
+    for (int i = 0; i < shape2.num_points; ++i) {
+        shape2.shape[i].pos[0] += floorf(((double)arc4random() / ARC4RANDOM_MAX - 0.5) * 20.);
+        shape2.shape[i].pos[1] += floorf(((double)arc4random() / ARC4RANDOM_MAX - 0.5) * 20.);
+    }
+    
+    
+    
+    [imgView1 setImage:img1];
+    [imgView1 setShape:shape1];
+    [imgView1 setTriangles:tri];
+    
+    UIImage *img2 = [PAW warpImage:img1 :shape1 :shape2 :tri];
+    
+    [imgView2 setImage:img2];
+    [imgView2 setShape:shape2];
+    [imgView2 setTriangles:tri];
     
 }
 
@@ -52,20 +75,78 @@ Triangulate *delaunay;
 - (void)testTriangulation
 {
     int nPoints = 3;
-    point_t *points = (point_t*)malloc(nPoints*sizeof(point_t));
+    vector<point_2d_t> points;
     for(int i = 0; i < nPoints; ++i)
     {
-        points[i].pos[0] = floorf(((double)arc4random() / ARC4RANDOM_MAX) * 100.0f);
-        points[i].pos[1] = floorf(((double)arc4random() / ARC4RANDOM_MAX) * 100.0f);
+        point_2d_t point;
+        point.pos[0] = floorf(((double)arc4random() / ARC4RANDOM_MAX) * 10.0f);
+        point.pos[1] = floorf(((double)arc4random() / ARC4RANDOM_MAX) * 10.0f);
+        points.push_back(point);
     }
     
-    int nTriangles;
-    triangle_t *triangles = NULL;
-    delaunay->performDelaunay(100, 100, points, nPoints, triangles, &nTriangles);
+    vector<triangle_t> triangles;
+    delaunay->performDelaunay(0, 0, 100, 100, points, &triangles);
     
+    NSMutableString *text = [[NSMutableString alloc] init];
+    [text appendFormat:@"\n%i retrieved triangles: \n", triangles.size()];
+    for(int i = 0; i < triangles.size(); ++i) {
+        [text appendFormat:@"[%i, %i, %i]\n", triangles[i].ind[0], triangles[i].ind[1], triangles[i].ind[2]];
+    }
+    NSLog(@"%@", text);
     
 }
 
+- (PDMShape*)createDummyShape:(int)nPoints :(CGSize)size
+{
+    point_t *points = (point_t*)malloc(nPoints * sizeof(point_t));
+    
+    for(int i = 0; i < nPoints; ++i)
+    {
+        points[i].pos[0] = floorf(((double)arc4random() / ARC4RANDOM_MAX) * size.width);
+        points[i].pos[1] = floorf(((double)arc4random() / ARC4RANDOM_MAX) * size.height);
+    }
+    
+    PDMShape *shape = [[PDMShape alloc] init];
+    [shape setNewShapeData:points :nPoints];
+    return shape;
+}
+
+- (NSArray*)triangulateShape:(PDMShape*)s
+{
+    NSLog(@"Triangulate Shape...");
+    int nPoints = s.num_points;
+    vector<point_2d_t> points(nPoints);
+    for(int i = 0; i < nPoints; ++i)
+    {
+        points[i].pos[0] = s.shape[i].pos[0];
+        points[i].pos[1] = s.shape[i].pos[1];
+        NSLog(@"[%f, %f]", points[i].pos[0], points[i].pos[1]);
+    }
+    
+    CGRect rect = [s getMinBoundingBox];
+    NSLog(@"min bounding box = %f, %f, %f, %f", rect.origin.x, rect.origin.y, rect.size.width, rect.size.height);
+    
+    vector<triangle_t> triangles;
+    delaunay->performDelaunay(rect.origin.x-50, rect.origin.y-50, rect.size.width+100, rect.size.height+100, points, &triangles);
+    
+    NSMutableArray *trianglesNS = [[NSMutableArray alloc] initWithCapacity:triangles.size()];
+    for(int i = 0; i < triangles.size(); ++i) {
+        PDMTriangle *tri = [[PDMTriangle alloc] init];
+        tri.index[0] = triangles[i].ind[0];
+        tri.index[1] = triangles[i].ind[1];
+        tri.index[2] = triangles[i].ind[2];
+        [trianglesNS addObject:tri];
+    }
+    
+    NSMutableString *text = [[NSMutableString alloc] init];
+    [text appendFormat:@"\n%i retrieved triangles: \n", triangles.size()];
+    for(int i = 0; i < triangles.size(); ++i) {
+        [text appendFormat:@"[%i, %i, %i]\n", triangles[i].ind[0], triangles[i].ind[1], triangles[i].ind[2]];
+    }
+    NSLog(@"%@", text);
+    
+    return trianglesNS;
+}
 
 
 - (UIImage*)createDummyImage:(CGSize)size
@@ -76,7 +157,7 @@ Triangulate *delaunay;
     {
         for (int x = 0; x < size.width; ++x) 
         {
-            unsigned char c = (((y & 8) == 0) ^ ((x & 8) == 0)) * 255;
+            unsigned char c = (((y & 8) == 0) ^ ((x & 8) == 0)) * 128 + 127;
             
             *data_ptr++ = c;
             *data_ptr++ = c;
@@ -87,9 +168,9 @@ Triangulate *delaunay;
 
     CGDataProviderRef provider = CGDataProviderCreateWithData(NULL, rawData, size.width*size.height*4, NULL);
     
-    int bitsPerComponent = 8;
-    int bitsPerPixel = 32;
-    int bytesPerRow = 4*size.width;
+//    int bitsPerComponent = 8;
+//    int bitsPerPixel = 32;
+//    int bytesPerRow = 4*size.width;
     CGColorSpaceRef colorSpaceRef = CGColorSpaceCreateDeviceRGB();
     CGBitmapInfo bitmapInfo = kCGBitmapByteOrderDefault;
     CGColorRenderingIntent renderingIntent = kCGRenderingIntentDefault;

@@ -22,6 +22,7 @@
 
 - (void)setImage:(UIImage*)img
 {
+    image = nil;
     CGSize viewSize = self.frame.size;
     
     sx = viewSize.width/img.size.width;
@@ -38,12 +39,14 @@
 
 - (void)setShape:(PDMShape*)s
 {
+    shape = nil;
     shape = s;
 }
 
 
 - (void)setTriangles:(NSArray*)tri
 {
+    triangles = nil;
     triangles = tri;
 }
 

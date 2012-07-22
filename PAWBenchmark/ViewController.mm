@@ -36,12 +36,15 @@ Triangulate *delaunay;
     PAW = [[PiecewiseAffineWarp alloc] init];
     PAWCPU = [[PiecewiseAffineWarpCPU alloc] init];
 
+    img1 = [[UIImage alloc] init];
+    img2 = [[UIImage alloc] init];
+    shape1 = [[PDMShape alloc] init];
+    shape2 = [[PDMShape alloc] init];
+    tri = [[NSMutableArray alloc] init];
     
-    imgSize = CGSizeMake(800, 600);
-    int nPoints = 10;
-    double dt = [self performRandomTest:imgSize :nPoints :YES];
-
-    timeLabel.text = [NSString stringWithFormat:@"dt = %1.8f", dt];
+    
+    [self runVisualTest];
+    
 }
 
 - (void)viewDidUnload
@@ -70,24 +73,7 @@ Triangulate *delaunay;
 - (IBAction)startBenchmark:(id)sender
 {
     NSLog(@"Start Benchmark...");
-    spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
-    [spinner setCenter:CGPointMake(self.view.frame.size.width/2.0, self.view.frame.size.height/2.0)];
-    
-    UIView *darkView = [[UIView alloc] initWithFrame:self.view.frame];
-    [darkView setBackgroundColor:[UIColor colorWithRed:0 green:0 blue:0 alpha:0.7]];
-    [self.view addSubview:darkView];
-    
-    
-    [self.view addSubview:spinner];
-    [spinner startAnimating];
-    
-    
     [self runFullBenchmark];
-    
-    
-    
-    [spinner stopAnimating];
-    [darkView removeFromSuperview];
 }
 
 
@@ -97,14 +83,14 @@ Triangulate *delaunay;
     int numIndTests = 10;
     
     vector<CGSize> imageSizes(1);
-    imageSizes[0] = CGSizeMake(320, 240);
+    imageSizes[0] = CGSizeMake(640, 480);
     //imageSizes[1] = CGSizeMake(640, 480);
     //imageSizes[2] = CGSizeMake(1024, 768);
     //imageSizes[3] = CGSizeMake(3264, 2448);
 
     //static const int arr[] = {3, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100};
     //static const int arr[] = {3, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100};
-    static const int arr[] = {3, 5, 10, 20, 30, 40};
+    static const int arr[] = {3, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100};
     vector<int> numPoints(arr, arr + sizeof(arr) / sizeof(arr[0]) );
     
     NSMutableString *results = [[NSMutableString alloc] init];
@@ -117,31 +103,26 @@ Triangulate *delaunay;
             double dtGPU = 0;
             for(int k = 0; k < numIndTests; ++k)
             {
-                dtGPU += [self performRandomTest:imageSizes[i] :numPoints[j] :YES];
-                dtCPU += [self performRandomTest:imageSizes[i] :numPoints[j] :NO];
-                sleep(0.5);
+                [self createTestData:imageSizes[i] :numPoints[j]];
+                dtGPU += [self testWidthData:YES];
+                NSLog(@"t1 done");
+                dtCPU += [self testWidthData:NO];
+                NSLog(@"t2 done");
+                sleep(0.01);
             }
             dtCPU /= numIndTests;
             dtGPU /= numIndTests;
             NSLog(@"\nTest finished! Resolution = %f x %f, #Points = %i, dtGPU = %1.10f, dtCPU = %1.10f\n", imageSizes[i].width, imageSizes[i].height, numPoints[j], dtGPU, dtCPU);
-            [results appendFormat:@"%f x %f, %i, %1.10f, %1.10f\n", imageSizes[i].width, imageSizes[i].height, numPoints[j], dtGPU, dtCPU];
+            [results appendFormat:@"%i x %i, %i, %1.10f, %1.10f\n", (int)imageSizes[i].width, (int)imageSizes[i].height, (int)numPoints[j], dtGPU, dtCPU];
         }
     }
     NSLog(@"%@", results);
-    
-    
 }
 
 
 - (IBAction)tapRecongized:(UITapGestureRecognizer*)sender
 {
-    CGSize size = imgSize;
-    int nPoints = (int)numPSlider.value;
-    double dt = [self performRandomTest:size :nPoints :switchGPU.on];
-    timeLabel.text = [NSString stringWithFormat:@"dt = %1.8f", dt];
-    
-    [imgView1 setNeedsDisplay];
-    [imgView2 setNeedsDisplay];
+    [self runVisualTest];
 }
 
 - (IBAction)sliderChanged:(id)sender
@@ -149,25 +130,12 @@ Triangulate *delaunay;
     numPLabel.text = [NSString stringWithFormat:@"#Points: %i", (int)numPSlider.value];
 }
 
-- (double)performRandomTest:(CGSize)size :(int)nPoints :(BOOL)GPU
+- (void)runVisualTest
 {
-    UIImage *img1 = [self createDummyImage:size];
-    PDMShape *shape1 = [self createDummyShape:nPoints :size];
-    PDMShape *shape2 = [shape1 getCopy];
-    NSArray *tri = [self triangulateShape:shape1];
-
-    for (int i = 0; i < shape2.num_points; ++i) {
-        shape2.shape[i].pos[0] += floorf(((double)arc4random() / ARC4RANDOM_MAX - 0.5) * 20.);
-        shape2.shape[i].pos[1] += floorf(((double)arc4random() / ARC4RANDOM_MAX - 0.5) * 20.);
-    }
-    UIImage *img2;
-    NSDate *start = [NSDate date];
-    if(GPU == YES) {
-        img2 = [PAW warpImage:img1 :shape1 :shape2 :tri];
-    } else {
-        img2 = [PAWCPU warpImage:img1 :shape1 :shape2 :tri];
-    }
-    NSDate *stop = [NSDate date];
+    CGSize size = CGSizeMake(640, 480);
+    int nPoints = (int)numPSlider.value;
+    double dt = [self performRandomTest:size :nPoints :switchGPU.on];
+    timeLabel.text = [NSString stringWithFormat:@"dt = %1.8f", dt];
     
     [imgView1 setImage:img1];
     [imgView1 setShape:shape1];
@@ -177,6 +145,56 @@ Triangulate *delaunay;
     [imgView2 setShape:shape2];
     [imgView2 setTriangles:tri];
     
+    [imgView1 setNeedsDisplay];
+    [imgView2 setNeedsDisplay];
+}
+
+- (double)performRandomTest:(CGSize)size :(int)nPoints :(BOOL)GPU
+{
+    img1 = [self createDummyImage:size];
+    shape1 = [self createDummyShape:nPoints :size];
+    shape2 = [shape1 getCopy];
+    tri = [self triangulateShape:shape1];
+
+    for (int i = 0; i < shape2.num_points; ++i) {
+        shape2.shape[i].pos[0] += floorf(((double)arc4random() / ARC4RANDOM_MAX - 0.5) * 20.);
+        shape2.shape[i].pos[1] += floorf(((double)arc4random() / ARC4RANDOM_MAX - 0.5) * 20.);
+    }
+    
+    NSDate *start = [NSDate date];
+    if(GPU == YES) {
+        img2 = [PAW warpImage:img1 :shape1 :shape2 :tri];
+    } else {
+        img2 = [PAWCPU warpImage:img1 :shape1 :shape2 :tri];
+    }
+    NSDate *stop = [NSDate date];
+    
+    return [stop timeIntervalSinceDate:start];
+}
+
+- (void)createTestData:(CGSize)size :(int)nPoints 
+{
+    img1 = [self createDummyImage:size];
+    shape1 = [self createDummyShape:nPoints :size];
+    shape2 = [shape1 getCopy];
+    tri = [self triangulateShape:shape1];
+    
+    for (int i = 0; i < shape2.num_points; ++i) {
+        shape2.shape[i].pos[0] += floorf(((double)arc4random() / ARC4RANDOM_MAX - 0.5) * 20.);
+        shape2.shape[i].pos[1] += floorf(((double)arc4random() / ARC4RANDOM_MAX - 0.5) * 20.);
+    }
+}
+
+- (double)testWidthData:(BOOL)GPU
+{
+    NSDate *start = [NSDate date];
+    if(GPU == YES) {
+        img2 = [PAW warpImage:img1 :shape1 :shape2 :tri];
+    } else {
+        img2 = [PAWCPU warpImage:img1 :shape1 :shape2 :tri];
+    }
+    NSDate *stop = [NSDate date];
+
     return [stop timeIntervalSinceDate:start];
 }
 
@@ -237,13 +255,12 @@ Triangulate *delaunay;
     
     NSMutableArray *trianglesNS = [[NSMutableArray alloc] initWithCapacity:triangles.size()];
     for(int i = 0; i < triangles.size(); ++i) {
-        PDMTriangle *tri = [[PDMTriangle alloc] init];
-        tri.index[0] = triangles[i].ind[0];
-        tri.index[1] = triangles[i].ind[1];
-        tri.index[2] = triangles[i].ind[2];
-        [trianglesNS addObject:tri];
+        PDMTriangle *triangle = [[PDMTriangle alloc] init];
+        triangle.index[0] = triangles[i].ind[0];
+        triangle.index[1] = triangles[i].ind[1];
+        triangle.index[2] = triangles[i].ind[2];
+        [trianglesNS addObject:triangle];
     }
-    
     return trianglesNS;
 }
 

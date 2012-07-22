@@ -30,6 +30,12 @@
     PiecewiseAffineWarp *PAW;
     PiecewiseAffineWarpCPU *PAWCPU;
     
+    UIImage *img1;
+    UIImage *img2;
+    PDMShape *shape1;
+    PDMShape *shape2;
+    NSArray *tri;
+    
     CGSize imgSize;
 }
 

@@ -24,6 +24,7 @@ Triangulate *delaunay;
 @synthesize numPLabel;
 @synthesize numPSlider;
 @synthesize switchGPU;
+@synthesize tapRecognizer;
 
 - (void)viewDidLoad
 {
@@ -36,7 +37,7 @@ Triangulate *delaunay;
     PAWCPU = [[PiecewiseAffineWarpCPU alloc] init];
 
     
-    imgSize = CGSizeMake(640, 480);
+    imgSize = CGSizeMake(800, 600);
     int nPoints = 10;
     double dt = [self performRandomTest:imgSize :nPoints :YES];
 
@@ -57,21 +58,90 @@ Triangulate *delaunay;
 }
 
 
-- (IBAction)tapRecongized:(id)sender
+- (BOOL)gestureRecognizer:(UIGestureRecognizer *)gestureRecognizer shouldReceiveTouch:(UITouch *)touch
 {
-    UITapGestureRecognizer *tap = (UITapGestureRecognizer*)sender;
-    CGPoint p = [tap locationInView:self.view];
-    
-    if(p.y < (imgView1.frame.size.height + imgView2.frame.size.height ))
-    {
-        CGSize size = imgSize;
-        int nPoints = (int)numPSlider.value;
-        double dt = [self performRandomTest:size :nPoints :switchGPU.on];
-        timeLabel.text = [NSString stringWithFormat:@"dt = %1.8f", dt];
-        
-        [imgView1 setNeedsDisplay];
-        [imgView2 setNeedsDisplay];
+    CGPoint p = [touch locationInView:self.view];
+    if(p.y > (imgView1.frame.size.height + imgView2.frame.size.height )) {
+        return NO;
     }
+    return YES;
+}
+
+- (IBAction)startBenchmark:(id)sender
+{
+    NSLog(@"Start Benchmark...");
+    spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhiteLarge];
+    [spinner setCenter:CGPointMake(self.view.frame.size.width/2.0, self.view.frame.size.height/2.0)];
+    
+    UIView *darkView = [[UIView alloc] initWithFrame:self.view.frame];
+    [darkView setBackgroundColor:[UIColor colorWithRed:0 green:0 blue:0 alpha:0.7]];
+    [self.view addSubview:darkView];
+    
+    
+    [self.view addSubview:spinner];
+    [spinner startAnimating];
+    
+    
+    [self runFullBenchmark];
+    
+    
+    
+    [spinner stopAnimating];
+    [darkView removeFromSuperview];
+}
+
+
+- (void)runFullBenchmark
+{
+    // perform tests
+    int numIndTests = 10;
+    
+    vector<CGSize> imageSizes(1);
+    imageSizes[0] = CGSizeMake(320, 240);
+    //imageSizes[1] = CGSizeMake(640, 480);
+    //imageSizes[2] = CGSizeMake(1024, 768);
+    //imageSizes[3] = CGSizeMake(3264, 2448);
+
+    //static const int arr[] = {3, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100};
+    //static const int arr[] = {3, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100};
+    static const int arr[] = {3, 5, 10, 20, 30, 40};
+    vector<int> numPoints(arr, arr + sizeof(arr) / sizeof(arr[0]) );
+    
+    NSMutableString *results = [[NSMutableString alloc] init];
+    [results appendString:@"Resolution, #Points, time GPU, time CPU\n"];
+    for(int i = 0; i < imageSizes.size(); ++i)
+    {
+        for(int j = 0; j < numPoints.size(); ++j)
+        {
+            double dtCPU = 0;
+            double dtGPU = 0;
+            for(int k = 0; k < numIndTests; ++k)
+            {
+                dtGPU += [self performRandomTest:imageSizes[i] :numPoints[j] :YES];
+                dtCPU += [self performRandomTest:imageSizes[i] :numPoints[j] :NO];
+                sleep(0.5);
+            }
+            dtCPU /= numIndTests;
+            dtGPU /= numIndTests;
+            NSLog(@"\nTest finished! Resolution = %f x %f, #Points = %i, dtGPU = %1.10f, dtCPU = %1.10f\n", imageSizes[i].width, imageSizes[i].height, numPoints[j], dtGPU, dtCPU);
+            [results appendFormat:@"%f x %f, %i, %1.10f, %1.10f\n", imageSizes[i].width, imageSizes[i].height, numPoints[j], dtGPU, dtCPU];
+        }
+    }
+    NSLog(@"%@", results);
+    
+    
+}
+
+
+- (IBAction)tapRecongized:(UITapGestureRecognizer*)sender
+{
+    CGSize size = imgSize;
+    int nPoints = (int)numPSlider.value;
+    double dt = [self performRandomTest:size :nPoints :switchGPU.on];
+    timeLabel.text = [NSString stringWithFormat:@"dt = %1.8f", dt];
+    
+    [imgView1 setNeedsDisplay];
+    [imgView2 setNeedsDisplay];
 }
 
 - (IBAction)sliderChanged:(id)sender
@@ -194,22 +264,29 @@ Triangulate *delaunay;
             *data_ptr++ = c;
         }
     }
-
-    CGDataProviderRef provider = CGDataProviderCreateWithData(NULL, rawData, size.width*size.height*4, NULL);
     
 //    int bitsPerComponent = 8;
 //    int bitsPerPixel = 32;
 //    int bytesPerRow = 4*size.width;
-    CGColorSpaceRef colorSpaceRef = CGColorSpaceCreateDeviceRGB();
-    CGBitmapInfo bitmapInfo = kCGBitmapByteOrderDefault;
-    CGColorRenderingIntent renderingIntent = kCGRenderingIntentDefault;
-    CGImageRef imageRef = CGImageCreate(size.width, size.height, 8, 32, 4*size.width,colorSpaceRef, bitmapInfo, provider, NULL, NO, renderingIntent);
+    //CGColorSpaceRef colorSpaceRef = CGColorSpaceCreateDeviceRGBA();
+    //CGBitmapInfo bitmapInfo = kCGBitmapByteOrderDefault;
     
-    CGDataProviderRelease(provider);
+    CGColorSpaceRef colorSpaceRef = CGColorSpaceCreateDeviceRGB();
+    CGBitmapInfo bitmapInfo = kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Host;
+    
+//    CGColorRenderingIntent renderingIntent = kCGRenderingIntentDefault;
+//    CGImageRef imageRef = CGImageCreate(size.width, size.height, 8, 32, 4*size.width,colorSpaceRef, bitmapInfo, provider, NULL, NO, renderingIntent);
+    
+    CGContextRef contextRef = CGBitmapContextCreate(rawData, size.width, size.height, 8, 4*size.width, colorSpaceRef, bitmapInfo);
+    CGImageRef imageRef = CGBitmapContextCreateImage(contextRef);
+    
     CGColorSpaceRelease(colorSpaceRef);
+    free(rawData);
     
     UIImage *image = [UIImage imageWithCGImage:imageRef];
     CGImageRelease(imageRef);
+    CGContextRelease(contextRef);
+
 
     return image;
 }

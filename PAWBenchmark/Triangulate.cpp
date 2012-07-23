@@ -20,7 +20,7 @@ Triangulate::Triangulate()
 }
 
 
-void Triangulate::performDelaunay(int x, int y, int w, int h, const vector<point_2d_t> &points, vector<triangle_t> *triangles)
+double Triangulate::performDelaunay(int x, int y, int w, int h, const vector<point_2d_t> &points, vector<triangle_t> *triangles)
 {
     //cout << "performDelaunay" << endl;
     triangles->clear();
@@ -42,6 +42,7 @@ void Triangulate::performDelaunay(int x, int y, int w, int h, const vector<point
     vector<triangle_t> triangleIndList;
     
     float tol = 0.000001;
+    double area = 0.;
     for( size_t i = 0; i < triangleList.size(); i++ )
     {
         bool f1 = false;
@@ -53,7 +54,7 @@ void Triangulate::performDelaunay(int x, int y, int w, int h, const vector<point
         pt[0] = Point(cvRound(t[0]), cvRound(t[1]));
         pt[1] = Point(cvRound(t[2]), cvRound(t[3]));
         pt[2] = Point(cvRound(t[4]), cvRound(t[5]));
-        
+
         for(int j = 0; j < points.size(); ++j)
         {
             //cout << "x = " << points[j].pos[0] << ", y = " << points[j].pos[1] << endl;
@@ -78,9 +79,12 @@ void Triangulate::performDelaunay(int x, int y, int w, int h, const vector<point
         
         if(f1 && f2 && f3) {
             triangles->push_back(tri);
+            area += abs(t[0]*(t[3] - t[5]) + t[2]*(t[5] - t[1]) + t[4]*(t[1] - t[3]))/2;
         }
         
     }
+    
+    return area;
     
 }
 

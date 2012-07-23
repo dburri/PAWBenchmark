@@ -29,7 +29,7 @@ class Triangulate
 public:
     Triangulate();
     
-    void performDelaunay(int x, int y, int w, int h, const vector<point_2d_t> &points, vector<triangle_t> *triangles);
+    double performDelaunay(int x, int y, int w, int h, const vector<point_2d_t> &points, vector<triangle_t> *triangles);
     
 private:
     cv::Mat *image;

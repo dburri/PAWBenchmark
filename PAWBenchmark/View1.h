@@ -19,8 +19,10 @@
     NSArray *triangles;
 }
 
+@property (retain) UIImage *image;
 
-- (void)setImage:(UIImage*)img;
+
+- (void)setNewImage:(UIImage*)img;
 - (void)setShape:(PDMShape*)s;
 - (void)setTriangles:(NSArray*)tri;
 

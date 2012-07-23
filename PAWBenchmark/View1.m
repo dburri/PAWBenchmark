@@ -10,6 +10,8 @@
 
 @implementation View1
 
+@synthesize image;
+
 - (id)initWithFrame:(CGRect)frame
 {
     self = [super initWithFrame:frame];
@@ -20,9 +22,9 @@
 }
 
 
-- (void)setImage:(UIImage*)img
+- (void)setNewImage:(UIImage*)img
 {
-    image = nil;
+    self.image = Nil;
     CGSize viewSize = self.frame.size;
     
     sx = viewSize.width/img.size.width;
@@ -32,7 +34,7 @@
     
     UIGraphicsBeginImageContext(imgSize);
     [img drawInRect:CGRectMake(0, 0, viewSize.width, viewSize.height)];
-    image = UIGraphicsGetImageFromCurrentImageContext();
+    self.image = UIGraphicsGetImageFromCurrentImageContext();
     UIGraphicsEndImageContext();
 }
 

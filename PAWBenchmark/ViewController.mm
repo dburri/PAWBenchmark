@@ -27,9 +27,6 @@
 @synthesize switchGPU;
 @synthesize tapRecognizer;
 
-@synthesize img1;
-@synthesize img2;
-
 - (void)viewDidLoad
 {
     [super viewDidLoad];
@@ -39,12 +36,6 @@
     PAW = [[PiecewiseAffineWarp alloc] init];
     PAWCPU = [[PiecewiseAffineWarpCPU alloc] init];
 
-    img1 = [[UIImage alloc] init];
-    img2 = [[UIImage alloc] init];
-    shape1 = [[PDMShape alloc] init];
-    shape2 = [[PDMShape alloc] init];
-    tri = [[NSMutableArray alloc] init];
-    
     [self runVisualTest];
     
 }
@@ -85,46 +76,72 @@
 - (IBAction)startBenchmark:(id)sender
 {
     NSLog(@"Start Benchmark...");
-    [self runFullBenchmark];
+    [self runPerformanceTest1];
+    //[self runPerformanceTest2];
 }
 
-- (void)runFullBenchmark
+- (void)runPerformanceTest1
 {
     // perform tests
     int numIndTests = 10;
     
     vector<CGSize> imageSizes;
+    imageSizes.push_back(CGSizeMake(12, 12));
+    imageSizes.push_back(CGSizeMake(16, 16));
+    imageSizes.push_back(CGSizeMake(32, 32));
+    imageSizes.push_back(CGSizeMake(45, 45));
     imageSizes.push_back(CGSizeMake(64, 64));
-    imageSizes.push_back(CGSizeMake(320, 240));
-    imageSizes.push_back(CGSizeMake(640, 480));
-    imageSizes.push_back(CGSizeMake(1024, 768));
+    imageSizes.push_back(CGSizeMake(90, 90));
+    imageSizes.push_back(CGSizeMake(128, 128));
+    imageSizes.push_back(CGSizeMake(181, 181));
+    imageSizes.push_back(CGSizeMake(256, 256));
+    imageSizes.push_back(CGSizeMake(362, 362));
+    imageSizes.push_back(CGSizeMake(512, 512));
+    imageSizes.push_back(CGSizeMake(724, 724));
+    imageSizes.push_back(CGSizeMake(1024, 1024));
+    imageSizes.push_back(CGSizeMake(1448, 1448));
     imageSizes.push_back(CGSizeMake(3264, 2448));
     
-    static const int arr[] = {4, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100};
+    static const int arr[] = {10, 50, 100};
     vector<int> numPoints(arr, arr + sizeof(arr) / sizeof(arr[0]) );
     
     NSMutableString *results = [[NSMutableString alloc] init];
     [results appendString:@"Resolution, #Points, #Triangles, Area Coverage, time GPU, time CPU\n"];
     for(int i = 0; i < imageSizes.size(); ++i)
     {
+        [self performRandomTest:imageSizes[i] :4 :YES];
+        
         for(int j = 0; j < numPoints.size(); ++j)
         {
             double dtCPU = 0;
             double dtGPU = 0;
+            double dtTmp = 0;
             double avgNumTri = 0;
             double avgAreaCov = 0;
             for(int k = 0; k < numIndTests; ++k)
             {
-                [self createTestData:imageSizes[i] :numPoints[j]];
-                avgNumTri += [tri count];
-                avgAreaCov += areaCoverage;
+                @autoreleasepool
+                {
+                    // create test data
+                    double area = 0;
+                    UIImage *img1 = [self createDummyImage:imageSizes[i]];
+                    UIImage *img2;
+                    PDMShape *shape1 = [self createDummyShape:numPoints[j] :imageSizes[i]];
+                    PDMShape *shape2 = [self perturbShapeRandomly:shape1];
+                    NSArray *tri = [self triangulateShape:shape1 :&area];
+                    double areaCoverage = area/(imageSizes[i].width*imageSizes[i].height);
+                    
+                    avgNumTri += [tri count];
+                    avgAreaCov += areaCoverage;
             
-                @autoreleasepool {
-                    dtGPU += [self testWidthData:YES];
-                }
-                
-                @autoreleasepool {
-                    dtCPU += [self testWidthData:NO];
+                    @autoreleasepool {
+                        img2 = [self testWidthData:YES :img1 :shape1 :shape2 :tri :&dtTmp];
+                        dtGPU += dtTmp;
+                    }
+                    @autoreleasepool {
+                        img2 = [self testWidthData:NO :img1 :shape1 :shape2 :tri :&dtTmp];
+                        dtCPU += dtTmp;
+                    }
                 }
             }
             dtCPU /= numIndTests;
@@ -140,11 +157,87 @@
     NSLog(@"%@", results);
 }
 
+- (void)runPerformanceTest2
+{
+    // perform tests
+    int numIndTests = 10;
+    
+    static const float arr1[] = {0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
+    //static const float arr1[] = {0.1, 0.2, 0.3, 0.4};
+    //static const float arr1[] = {0.5, 0.6, 0.7, 0.8};
+    //static const float arr1[] = {0.9, 1.0};
+    vector<float> pixelCoverage(arr1, arr1 + sizeof(arr1) / sizeof(arr1[0]) );
+    
+    static const int arr2[] = {10, 50, 100};
+    vector<int> numPoints(arr2, arr2 + sizeof(arr2) / sizeof(arr2[0]) );
+    
+    CGSize imgSize = CGSizeMake(640, 480);
+    
+    NSMutableString *results = [[NSMutableString alloc] init];
+    [results appendString:@"Resolution, #Points, #Triangles, Area Coverage, time GPU, time CPU\n"];
+    for(int i = 0; i < pixelCoverage.size(); ++i)
+    {
+        for(int j = 0; j < numPoints.size(); ++j)
+        {
+            double dtCPU = 0;
+            double dtGPU = 0;
+            double avgNumTri = 0;
+            double avgAreaCov = 0;
+            double dtTmp = 0;
+            for(int k = 0; k < numIndTests; ++k)
+            {
+                @autoreleasepool
+                {
+                    // create test data
+                    double area;
+                    UIImage *img1 = [self createDummyImage:imgSize];
+                    UIImage *img2;
+                    PDMShape *shape1 = [self createDummyShapeWithCoverage:numPoints[j] :imgSize :pixelCoverage[i]];
+                    PDMShape *shape2 = [self perturbShapeRandomly:shape1];
+                    NSArray *tri = [self triangulateShape:shape1 :&area];
+                    double areaCoverage = area/(imgSize.width*imgSize.height);
+                    
+                    avgNumTri += [tri count];
+                    avgAreaCov += areaCoverage;
+                    
+                    
+                    // apply test
+                    img2 = [self testWidthData:YES :img1 :shape1 :shape2 :tri :&dtTmp];
+                    dtGPU += dtTmp;
+                    
+                    img2 = [self testWidthData:NO :img1 :shape1 :shape2 :tri :&dtTmp];
+                    dtCPU += dtTmp;
+                }
+                
+            }
+            dtCPU /= numIndTests;
+            dtGPU /= numIndTests;
+            avgNumTri /= numIndTests;
+            avgAreaCov /= numIndTests;
+            
+            NSLog(@"\nTest finished! Resolution = %i x %i, #Points = %i, #Triangles = %.1f, AreaCov = %f, dtGPU = %1.10f, dtCPU = %1.10f\n", (int)imgSize.width, (int)imgSize.height, numPoints[j], avgNumTri, avgAreaCov, dtGPU, dtCPU);
+            
+            [results appendFormat:@"%i x %i, %i, %.1f, %.4f, %1.10f, %1.10f\n", (int)imgSize.width, (int)imgSize.height, (int)numPoints[j], avgNumTri, avgAreaCov, dtGPU, dtCPU];
+        }
+    }
+    NSLog(@"%@", results);
+}
+
 - (void)runVisualTest
 {
     CGSize size = CGSizeMake(320, 240);
     int nPoints = (int)numPSlider.value;
-    double dt = [self performRandomTest:size :nPoints :switchGPU.on];
+    BOOL usePGU = switchGPU.on;
+    
+    double area;
+    double dt;
+    UIImage *img1 = [self createDummyImage:size];
+    PDMShape *shape1 = [self createDummyShape:nPoints :size];
+    PDMShape *shape2 = [shape1 getCopy];
+    NSArray *tri = [self triangulateShape:shape1 :&area];
+    
+    UIImage *img2 = [self testWidthData:usePGU :img1 :shape1 :shape2 :tri :&dt];
+    
     timeLabel.text = [NSString stringWithFormat:@"dt = %1.8f", dt];
     
     [imgView1 setNewImage:img1];
@@ -162,54 +255,44 @@
 - (double)performRandomTest:(CGSize)size :(int)nPoints :(BOOL)GPU
 {
     double area;
-    img1 = [self createDummyImage:size];
-    shape1 = [self createDummyShape:nPoints :size];
-    shape2 = [shape1 getCopy];
-    tri = [self triangulateShape:shape1 :&area];
-    areaCoverage = area/(size.width*size.height);
+    double dt;
+    UIImage *img1 = [self createDummyImage:size];
+    PDMShape *shape1 = [self createDummyShape:nPoints :size];
+    PDMShape *shape2 = [shape1 getCopy];
+    NSArray *tri = [self triangulateShape:shape1 :&area];
 
-    for (int i = 0; i < shape2.num_points; ++i) {
-        shape2.shape[i].pos[0] += floorf(((double)arc4random() / ARC4RANDOM_MAX - 0.5) * 20.);
-        shape2.shape[i].pos[1] += floorf(((double)arc4random() / ARC4RANDOM_MAX - 0.5) * 20.);
-    }
+    [self testWidthData:GPU :img1 :shape1 :shape2 :tri :&dt];
     
-    NSDate *start = [NSDate date];
-    if(GPU == YES) {
-        img2 = [PAW warpImage:img1 :shape1 :shape2 :tri];
-    } else {
-        img2 = [PAWCPU warpImage:img1 :shape1 :shape2 :tri];
-    }
-    NSDate *stop = [NSDate date];
-    
-    return [stop timeIntervalSinceDate:start];
+    return dt;
 }
 
-- (void)createTestData:(CGSize)size :(int)nPoints 
+
+- (PDMShape*)perturbShapeRandomly:(PDMShape*)s
 {
-    double area;
-    img1 = [self createDummyImage:size];
-    shape1 = [self createDummyShape:nPoints :size];
-    shape2 = [shape1 getCopy];
-    tri = [self triangulateShape:shape1 :&area];
-    areaCoverage = area/(size.width*size.height);
-    
-    for (int i = 0; i < shape2.num_points; ++i) {
-        shape2.shape[i].pos[0] += floorf(((double)arc4random() / ARC4RANDOM_MAX - 0.5) * 20.);
-        shape2.shape[i].pos[1] += floorf(((double)arc4random() / ARC4RANDOM_MAX - 0.5) * 20.);
+    PDMShape *s2 = [s getCopy];
+    for (int i = 0; i < s2.num_points; ++i) {
+        s2.shape[i].pos[0] += floorf(((double)arc4random() / ARC4RANDOM_MAX - 0.5) * 20.);
+        s2.shape[i].pos[1] += floorf(((double)arc4random() / ARC4RANDOM_MAX - 0.5) * 20.);
     }
+    return s2;
 }
 
-- (double)testWidthData:(BOOL)GPU
+- (UIImage*)testWidthData:(BOOL)GPU :(UIImage*)img1 :(PDMShape*)shape1 :(PDMShape*)shape2 :(NSArray*)triangles :(double*)dt
 {
     NSDate *start = [NSDate date];
-    if(GPU == YES) {
-        img2 = [PAW warpImage:img1 :shape1 :shape2 :tri];
-    } else {
-        img2 = [PAWCPU warpImage:img1 :shape1 :shape2 :tri];
+    UIImage *tmpImg;
+    @autoreleasepool
+    {
+        if(GPU == YES) {
+            tmpImg = [PAW warpImage:img1 :shape1 :shape2 :triangles];
+        } else {
+            tmpImg = [PAWCPU warpImage:img1 :shape1 :shape2 :triangles];
+        }
     }
     NSDate *stop = [NSDate date];
+    *dt = [stop timeIntervalSinceDate:start];
 
-    return [stop timeIntervalSinceDate:start];
+    return tmpImg;
 }
 
 
@@ -291,6 +374,57 @@
     
     PDMShape *shape = [[PDMShape alloc] init];
     [shape setNewShapeData:points :nPoints];
+    return shape;
+}
+
+- (PDMShape*)createDummyShapeWithCoverage:(int)nPoints :(CGSize)size :(float)coverage
+{
+    assert(coverage <= 1);
+    assert(nPoints >= 4);
+    assert(size.width > 0 && size.height > 0);
+    
+    float tol = 0.01;
+    
+    vector<point_2d_t> points(nPoints);
+    float area = 0;
+    
+    float w = floor(sqrtf(coverage * size.width * size.width));
+    float h = floor(size.height / size.width * w);
+    
+    //NSLog(@"np = %i, c = %f, w = %i, h = %i, wp = %i, hp = %i", nPoints, coverage, (int)size.width, (int)size.height, (int)w, (int)h);
+    
+    while(abs(coverage-area/(size.width*size.height)) > tol)
+    {
+        points[0].pos[0] = 0;
+        points[0].pos[1] = 0;
+        points[1].pos[0] = w;
+        points[1].pos[1] = 0;
+        points[2].pos[0] = w;
+        points[2].pos[1] = h;
+        points[3].pos[0] = 0;
+        points[3].pos[1] = h;
+        
+        for(int i = 4; i < nPoints; ++i)
+        {
+            points[i].pos[0] = floorf(((double)arc4random() / ARC4RANDOM_MAX) * w);
+            points[i].pos[1] = floorf(((double)arc4random() / ARC4RANDOM_MAX) * h);
+        }
+        
+        vector<triangle_t> triangles;
+        area = delaunay->performDelaunay(-50, -50, w+100, h+100, points, &triangles);
+        //NSLog(@"rc = %f, numtri = %i", realCoverage, (int)triangles.size());
+    }
+    
+    point_t *points2 = (point_t*)malloc(nPoints * sizeof(point_t));
+    for(int i = 0; i < nPoints; ++i)
+    {
+        points2[i].pos[0] = points[i].pos[0];
+        points2[i].pos[1] = points[i].pos[1];
+    }
+    
+    PDMShape *shape = [[PDMShape alloc] init];
+    [shape setNewShapeData:points2 :nPoints];
+    
     return shape;
 }
 

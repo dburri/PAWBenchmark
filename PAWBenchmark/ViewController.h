@@ -29,15 +29,6 @@
     
     PiecewiseAffineWarp *PAW;
     PiecewiseAffineWarpCPU *PAWCPU;
-    
-    UIImage *img1;
-    UIImage *img2;
-    PDMShape *shape1;
-    PDMShape *shape2;
-    NSArray *tri;
-    double areaCoverage;
-    
-    CGSize imgSize;
 }
 
 @property (retain) IBOutlet View1 *imgView1;
@@ -47,10 +38,6 @@
 @property (nonatomic, strong) IBOutlet UISlider *numPSlider;
 @property (nonatomic, strong) IBOutlet UISwitch *switchGPU;
 @property (nonatomic, strong) IBOutlet UITapGestureRecognizer *tapRecognizer;
-
-@property (retain) UIImage *img1;
-@property (retain) UIImage *img2;
-
 
 - (UIImage*)createDummyImage:(CGSize)size;
 - (PDMShape*)createDummyShape:(int)nPoints :(CGSize)size;

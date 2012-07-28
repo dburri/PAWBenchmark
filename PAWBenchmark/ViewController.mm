@@ -76,8 +76,8 @@
 - (IBAction)startBenchmark:(id)sender
 {
     NSLog(@"Start Benchmark...");
-    [self runPerformanceTest1];
-    //[self runPerformanceTest2];
+    //[self runPerformanceTest1];
+    [self runPerformanceTest2];
 }
 
 - (void)runPerformanceTest1
@@ -171,7 +171,8 @@
     static const int arr2[] = {10, 50, 100};
     vector<int> numPoints(arr2, arr2 + sizeof(arr2) / sizeof(arr2[0]) );
     
-    CGSize imgSize = CGSizeMake(640, 480);
+    CGSize imgSize = CGSizeMake(1600, 1200);
+    [self performRandomTest:imgSize :4 :YES];
     
     NSMutableString *results = [[NSMutableString alloc] init];
     [results appendString:@"Resolution, #Points, #Triangles, Area Coverage, time GPU, time CPU\n"];
@@ -233,7 +234,7 @@
     double dt;
     UIImage *img1 = [self createDummyImage:size];
     PDMShape *shape1 = [self createDummyShape:nPoints :size];
-    PDMShape *shape2 = [shape1 getCopy];
+    PDMShape *shape2 = [self perturbShapeRandomly:shape1];
     NSArray *tri = [self triangulateShape:shape1 :&area];
     
     UIImage *img2 = [self testWidthData:usePGU :img1 :shape1 :shape2 :tri :&dt];
@@ -271,8 +272,8 @@
 {
     PDMShape *s2 = [s getCopy];
     for (int i = 0; i < s2.num_points; ++i) {
-        s2.shape[i].pos[0] += floorf(((double)arc4random() / ARC4RANDOM_MAX - 0.5) * 20.);
-        s2.shape[i].pos[1] += floorf(((double)arc4random() / ARC4RANDOM_MAX - 0.5) * 20.);
+        s2.shape[i].pos[0] += floorf(((double)arc4random() / ARC4RANDOM_MAX - 0.5) * 80.);
+        s2.shape[i].pos[1] += floorf(((double)arc4random() / ARC4RANDOM_MAX - 0.5) * 80.);
     }
     return s2;
 }

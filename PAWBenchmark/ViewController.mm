@@ -434,17 +434,23 @@
 {
     unsigned char *rawData = (unsigned char*)malloc(size.width*size.height*4);
     unsigned char *data_ptr = &rawData[0];
+    double r = 0;
+    double dr = 1/(double)size.height;
+    double dg = 1/(double)size.width;
     for (int y = 0; y < size.height; ++y)
     {
+        double g = 0;
         for (int x = 0; x < size.width; ++x) 
         {
-            unsigned char c = (((y & 8) == 0) ^ ((x & 8) == 0)) * 128 + 127;
+            unsigned char c = (((y & 8) == 0) ^ ((x & 8) == 0));
             
-            *data_ptr++ = c;
-            *data_ptr++ = c;
-            *data_ptr++ = c;
-            *data_ptr++ = c;
+            *data_ptr++ = 255*c*r;      // B
+            *data_ptr++ = 255*c*g;      // G
+            *data_ptr++ = 255*c;        // R
+            *data_ptr++ = 255;          // A
+            g += dg;
         }
+        r += dr;
     }
     
     CGColorSpaceRef colorSpaceRef = CGColorSpaceCreateDeviceRGB();

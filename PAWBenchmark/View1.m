@@ -26,13 +26,14 @@
 {
     self.image = Nil;
     CGSize viewSize = self.frame.size;
+
+//    NSLog(@"frame size = %f x %f", viewSize.width, viewSize.height);
+//    NSLog(@"image size = %f x %f", img.size.width, img.size.height);
     
     sx = viewSize.width/img.size.width;
     sy = viewSize.height/img.size.height;
     
-    CGSize imgSize = CGSizeMake(sx*img.size.width, sy*img.size.height);
-    
-    UIGraphicsBeginImageContext(imgSize);
+    UIGraphicsBeginImageContext(viewSize);
     [img drawInRect:CGRectMake(0, 0, viewSize.width, viewSize.height)];
     self.image = UIGraphicsGetImageFromCurrentImageContext();
     UIGraphicsEndImageContext();
